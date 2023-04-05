@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="review">
+	<sql id="reviewCondition">
+		<choose>
+			<when test="space_num != null">
+				AND space_num = #{space_num}
+			</when>
+		</choose>
+	</sql>
+	<select id="getList" parameterType="reviewDto" resultType="reviewDto">
+		SELECT *
+		FROM
+			(SELECT result1.*, ROWNUM AS rnum
+			FROM
+				(SELECT review_num,review_writer,review_title,review_content,viewcount,
+					TO_CHAR(review_regdate, 'YY.MM.DD') AS review_regdate, star, seller_space.space_name, seller_space.space_num
+				FROM review
+				Inner Join seller_space on seller_space.space_num = review.space_num
+				WHERE seller_space.space_num = #{space_num}
+				ORDER BY review_num DESC) result1)
+		<![CDATA[ 
+		WHERE rnum >= #{startRowNum} AND rnum <= #{endRowNum}
+		]]>
+	</select>
+	
+	<select id="getList2" parameterType="reviewDto" resultType="reviewDto">
+		SELECT *
+		FROM
+			(SELECT result1.*, ROWNUM AS rnum
+			FROM
+				(SELECT review_num,review_writer,review_title,review_content,viewcount,
+						TO_CHAR(review_regdate, 'YY.MM.DD HH24:MI') AS review_regdate, reserv_num, star, seller_space.space_name
+				FROM review
+				Inner Join seller_space ON review.space_num = seller_space.space_num
+				WHERE review.users_num=#{users_num}
+				ORDER BY review_num DESC) result1)
+		<![CDATA[ 
+		WHERE rnum >= #{startRowNum} AND rnum <= #{endRowNum}
+		]]>	
+	</select>
+	
+	<select id="getList3" parameterType="reviewDto" resultType="reviewDto">
+		SELECT *
+		FROM (
+  			SELECT result1.*, ROWNUM AS rnum
+  			FROM (
+    			SELECT review_num, review_writer, review_title, review_content, viewcount, 
+           			TO_CHAR(review_regdate, 'YY.MM.DD HH24:MI') AS review_regdate, star, seller_space.space_name
+    			FROM review
+    			INNER JOIN seller_space ON review.space_num = seller_space.space_num
+    			INNER JOIN space_users ON seller_space.users_num = space_users.users_num
+    			WHERE space_users.id = #{sellerId}
+    			ORDER BY review_num DESC
+  			) result1
+		)
+		<![CDATA[ 
+		WHERE rnum BETWEEN #{startRowNum} AND #{endRowNum}
+		]]>
+
+		
+	</select>
+	
+	<select id="adminReview" parameterType="reviewDto" resultType="reviewDto">
+		SELECT *
+		FROM
+			(SELECT result1.*, ROWNUM AS rnum
+			FROM
+				(SELECT review_num,review_writer,review_title,review_content,viewcount,
+						TO_CHAR(review_regdate, 'YY.MM.DD HH24:MI') AS review_regdate, reserv_num, star, seller_space.space_name
+				FROM review
+				Inner Join seller_space ON review.space_num = seller_space.space_num
+				ORDER BY review_num DESC) result1)
+		<![CDATA[ 
+		WHERE rnum >= #{startRowNum} AND rnum <= #{endRowNum}
+		]]>	
+	</select>
+	
+	<select id="getUsersNum" resultType="int" parameterType="String">
+		SELECT users_num
+		FROM space_users
+		WHERE id=#{id}
+	</select>
+	
+	<select id="getCount" parameterType="reviewDto" resultType="int">
+		SELECT NVL(MAX(ROWNUM), 0)
+		FROM review
+		WHERE space_num = #{space_num}
+	</select>
+	
+	<select id="getCount2" parameterType="reviewDto" resultType="int">
+		SELECT NVL(MAX(ROWNUM), 0)
+		FROM review
+		WHERE users_num=#{users_num}
+	</select>
+	
+	<select id="getCount3" parameterType="reviewDto" resultType="int">
+		SELECT NVL(MAX(ROWNUM), 0)
+		FROM seller_space
+		INNER JOIN review ON review.space_num = seller_space.space_num
+		WHERE seller_space.users_num=(SELECT MAX(users_num) FROM space_users WHERE id=#{sellerId})
+	</select>
+	
+	<select id="adminCount" parameterType="reviewDto" resultType="int">
+		SELECT NVL(MAX(ROWNUM), 0)
+		FROM review
+	</select>
+
+	<insert id="insert">
+		INSERT INTO review 
+		(review_num, review_writer, review_title, review_content, viewcount, review_regdate, users_num, space_num, reserv_num, star)
+		VALUES (review_seq.NEXTVAL, #{review_writer}, #{review_title}, #{review_content}, #{viewcount}, SYSDATE,#{users_num}, #{space_num}, #{reserv_num}, #{star})
+	</insert>
+	
+	<select id="getData" parameterType="int" resultType="reviewDto">
+		SELECT result1.*
+		FROM
+			(SELECT space_name, review_num,review_writer,review_title,review_content,viewcount,TO_CHAR(review_regdate, 'YY.MM.DD HH24:MI') AS review_regdate, star, B.space_num,
+				LAG(review_num, 1, 0) OVER (ORDER BY review_num DESC) prevNum,
+	   			LEAD(review_num, 1, 0) OVER (ORDER BY review_num DESC) nextNum
+			FROM review A
+			INNER JOIN seller_space B ON A.space_num=B.space_num
+			) result1
+		WHERE review_num=#{review_num}
+	</select>
+	
+	<select id="getData2" parameterType="reviewDto" resultType="reviewDto">
+		SELECT result1.*
+		FROM
+			(SELECT space_name, review_num,review_writer,review_title,review_content,viewcount,TO_CHAR(review_regdate, 'YY.MM.DD HH24:MI') AS review_regdate, star, B.space_num,
+				LAG(review_num, 1, 0) OVER (ORDER BY review_num DESC) prevNum,
+	   			LEAD(review_num, 1, 0) OVER (ORDER BY review_num DESC) nextNum
+			FROM review A
+			INNER JOIN seller_space B ON A.space_num=B.space_num
+			WHERE B.space_num = #{space_num}) result1
+		WHERE review_num=#{review_num}
+	</select>
+	
+	<select id="sellerReviewData" parameterType="reviewDto" resultType="reviewDto">
+		SELECT result1.*
+		FROM
+			(SELECT space_name, review_num,review_writer,review_title,review_content,viewcount,TO_CHAR(review_regdate, 'YY.MM.DD HH24:MI') AS review_regdate, star,
+				LAG(review_num, 1, 0) OVER (ORDER BY review_num DESC) prevNum,
+	   			LEAD(review_num, 1, 0) OVER (ORDER BY review_num DESC) nextNum
+			FROM review
+			INNER JOIN seller_space ON review.space_num = seller_space.space_num
+		    INNER JOIN space_users ON seller_space.users_num = space_users.users_num
+		    WHERE space_users.id = #{sellerId} ) result1
+		WHERE review_num=#{review_num}
+		ORDER BY review_num
+	</select>
+	
+	<select id="usersReviewData" parameterType="reviewDto" resultType="reviewDto">
+	    SELECT result1.*
+	    FROM
+	        (SELECT space_name, review_num, review_writer, review_title, review_content, viewcount, TO_CHAR(review_regdate, 'YY.MM.DD HH24:MI') AS review_regdate, star,
+	            LAG(review_num, 1, 0) OVER (ORDER BY review_num DESC) prevNum,
+	            LEAD(review_num, 1, 0) OVER (ORDER BY review_num DESC) nextNum
+	        FROM review
+	        INNER JOIN seller_space ON review.space_num = seller_space.space_num
+	        WHERE review.users_num = #{users_num}
+	        ORDER BY review_num DESC) result1
+	    WHERE review_num = #{review_num}
+	</select>
+	
+	<update id="addReviewCount" parameterType="int">
+		UPDATE review
+		SET viewcount = viewcount+1
+		WHERE review_num=#{review_num}
+	</update>
+	
+	<delete id="delete">
+		DELETE FROM review
+		WHERE review_num=#{review_num}
+	</delete>
+	
+	<delete id="delete2" parameterType="int">
+		DELETE FROM review
+		WHERE space_num = #{space_num}
+	</delete>
+	
+	<!-- #은 ?로 바뀌고 '${xxx}'는 전처리 -->
+	<update id="update" parameterType="reviewDto">
+		UPDATE review
+		SET review_title=#{review_title}, review_content='${review_content}', star=#{star}
+		WHERE review_num=#{review_num}
+	</update>
+	
+	<!-- 가능한 리뷰 목록을 구하는 mapper-->
+	<select id="possibleReview" parameterType="reviewDto" resultType="reviewDto">
+		SELECT *
+		FROM 	
+			(SELECT *
+			FROM seller_space
+			INNER JOIN space_category ON seller_space.cate_name = space_category.cate_name
+			) result1
+		INNER JOIN reservationform ON reservationform.space_num=result1.space_num
+		WHERE reservationform.users_id=#{review_writer} AND reservationform.ispaid = 'true'
+		<![CDATA[
+			AND (reserv_date< TO_CHAR(SYSDATE, 'YYYY-MM-DD'))
+		]]>
+		<if test="reservNumList != null">
+			<foreach collection="reservNumList" item="item" open="AND NOT reservationform.reserv_num=" close="" separator=" AND NOT reservationform.reserv_num=">
+	        	#{item}
+			</foreach>
+		</if>
+		<if test="space_num != 0">
+			AND reservationform.space_num = #{space_num}
+		</if>
+	</select>
+	
+	<select id="getReservNum" parameterType="reviewDto" resultType="int">
+		SELECT reserv_num
+		FROM review
+		WHERE review_writer = #{review_writer}
+		<if test="space_num != 0">
+			AND space_num = #{space_num}
+		</if>
+	</select>
+</mapper>
+
+
+
+
+
+
+
+

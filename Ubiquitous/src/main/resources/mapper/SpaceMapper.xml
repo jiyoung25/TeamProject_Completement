@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="space">
+
+	<select id="getSpaceAllList" resultType="spaceDto" parameterType="spaceDto">
+		SELECT *
+		FROM
+			(SELECT result1.*, ROWNUM AS rnum
+			FROM
+				(SELECT space_num, users_num, space_name, mainImagePath, addr, addr2, seller_space.cate_name cate_name, oneliner
+				FROM seller_space
+				INNER JOIN space_category ON seller_space.cate_name=space_category.cate_name
+				ORDER BY space_num DESC) result1)
+		WHERE rnum BETWEEN #{startRowNum} AND #{endRowNum}
+		ORDER BY rnum DESC
+	</select>
+	<select id="getSpaceList" resultType="spaceDto" parameterType="spaceDto">
+		SELECT *
+		FROM
+			(SELECT result1.*, ROWNUM AS rnum
+			FROM
+				(SELECT space_num, users_num, space_name, mainImagePath, addr, addr2, seller_space.cate_name cate_name, oneliner
+				FROM seller_space
+				INNER JOIN space_category ON seller_space.cate_name=space_category.cate_name
+						WHERE space_category.cate_num = #{cate_num}
+						<if test="searchArea != null">
+							<foreach collection="searchArea" item="item" open="AND (addr LIKE " close=")" separator="OR addr LIKE ">
+				               	#{item}
+							</foreach>
+						</if>
+						ORDER BY seller_space.space_num DESC
+				) result1)
+		WHERE rnum BETWEEN #{startRowNum} AND #{endRowNum}
+		ORDER BY space_num DESC
+	</select>
+	<select id="getCount" parameterType="spaceDto" resultType="int">
+		SELECT NVL(MAX(ROWNUM), 0)
+		FROM seller_space
+		JOIN space_category ON seller_space.cate_name=space_category.cate_name
+		WHERE space_category.cate_num = #{cate_num}
+		<if test="searchArea != null">
+			<foreach collection="searchArea" item="item" open="AND (addr LIKE " close=")" separator="OR addr LIKE ">
+               	#{item}
+			</foreach>
+		</if>
+	</select>
+	<select id="getAllCount" resultType="int">
+		SELECT NVL(MAX(ROWNUM), 0)
+		FROM seller_space
+	</select>
+	<select id="getData" parameterType="int" resultType="spaceDto">
+		SELECT space_num, users_num, space_name, mainImagePath, addr, addr2, seller_space.cate_name cate_name, oneliner, intro
+		FROM seller_space
+		WHERE space_num=#{space_num}
+	</select>
+	<select id="getRecentReviewList" resultType="spaceDto">
+    	SELECT *
+		FROM
+			(SELECT result1.*, rownum
+			FROM
+				(SELECT a.space_num, a.space_name, a.mainimagepath, a.addr, a.addr2, a.cate_name, a.cate_num, review.review_content, review.star
+				FROM
+					(SELECT b.space_num, b.space_name, b.mainimagepath, b.addr, b.addr2, b.cate_name, space_category.cate_num
+					FROM seller_space b
+					INNER JOIN space_category ON b.cate_name=space_category.cate_name) a
+				INNER JOIN review ON a.space_num=review.space_num
+				ORDER BY review.review_num DESC)result1) 
+		WHERE rownum BETWEEN 1 AND 8
+	</select>
+</mapper>

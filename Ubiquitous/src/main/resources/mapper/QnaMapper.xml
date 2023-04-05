@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="qna">
+
+	<sql id="searchCondition">
+		<choose>
+			<when test="title != null and content != null">
+				WHERE title LIKE '%'||#{title}||'%' OR content LIKE '%'||#{content}||'%' AND space_num = #{space_num}
+			</when>
+			<when test="title != null">
+            	WHERE title LIKE '%'||#{title}||'%' AND space_num = #{space_num}
+			</when>
+			<when test="writer != null">
+            	WHERE writer LIKE '%'||#{writer}||'%' AND space_num = #{space_num}
+			</when>
+			<otherwise>
+				WHERE space_num = #{space_num}
+			</otherwise>
+		</choose>
+	</sql>
+	<sql id="searchCondition2">
+		<choose>
+			<when test="title != null and content != null">
+				WHERE title LIKE '%'||#{title}||'%' OR content LIKE '%'||#{content}||'%'
+			</when>
+			<when test="title != null">
+            	WHERE title LIKE '%'||#{title}||'%'
+			</when>
+			<when test="writer != null">
+            	WHERE writer LIKE '%'||#{writer}||'%'
+			</when>
+			<otherwise>
+				WHERE B.space_num=#{space_num}
+			</otherwise>
+			
+		</choose>
+	</sql>
+	
+	<select id="getList" parameterType="qnaDto" resultType="qnaDto">
+      SELECT *
+      FROM
+         (SELECT result1.*, ROWNUM AS rnum
+         FROM
+            (SELECT num,writer,title,content,viewCount,TO_CHAR(regdate, 'YY.MM.DD') AS regdate
+            FROM qna
+            <include refid="searchCondition"/>
+            ORDER BY num DESC) result1)
+      <![CDATA[ 
+      WHERE rnum >= #{qnaStartRowNum} AND rnum <= #{qnaEndRowNum}
+      ]]>
+	</select>
+   
+   	<select id="getList2" parameterType="qnaDto" resultType="qnaDto">
+   		SELECT *
+		FROM
+			(SELECT result1.*, ROWNUM AS rnum
+			FROM
+				(SELECT num,writer,title,content,viewCount,TO_CHAR(regdate, 'YY.MM.DD HH24:MI') AS regdate, seller_space.space_name
+				FROM qna
+				Inner Join seller_space ON qna.space_num = seller_space.space_num
+				WHERE qna.users_num = #{users_num}
+				ORDER BY num DESC) result1)
+		<![CDATA[ 
+		WHERE rnum >= #{qnaStartRowNum} AND rnum <= #{qnaEndRowNum}
+		]]>
+	</select>
+   
+	<select id="getList3" parameterType="qnaDto" resultType="qnaDto">
+   		SELECT *
+		FROM (
+		    SELECT result1.*, ROWNUM AS rnum
+		    FROM (
+		        SELECT qna.num, qna.writer, qna.title, qna.content, qna.viewCount, TO_CHAR(qna.regdate, 'YY.MM.DD HH24:MI') AS regdate, seller_space.space_name
+		        FROM qna
+		        INNER JOIN seller_space ON qna.space_num = seller_space.space_num
+		        INNER JOIN space_users ON seller_space.users_num = space_users.users_num
+		        WHERE seller_space.space_num = qna.space_num AND space_users.id = #{sellerId}
+		        ORDER BY num DESC
+		    ) result1
+		)
+		<![CDATA[ 
+		WHERE rnum >= #{qnaStartRowNum} AND rnum <= #{qnaEndRowNum}
+		]]>
+	</select>
+	
+	<select id="adminQna" parameterType="qnaDto" resultType="qnaDto">
+   		SELECT *
+		FROM
+			(SELECT result1.*, ROWNUM AS rnum
+			FROM
+				(SELECT num,writer,title,content,viewCount,TO_CHAR(regdate, 'YY.MM.DD HH24:MI') AS regdate, seller_space.space_name
+				FROM qna
+				Inner Join seller_space ON qna.space_num = seller_space.space_num
+				ORDER BY num DESC) result1)
+		<![CDATA[ 
+		WHERE rnum >= #{qnaStartRowNum} AND rnum <= #{qnaEndRowNum}
+		]]>
+	</select>
+   
+   	<select id="getUsersNum" resultType="int" parameterType="String">
+		SELECT users_num
+		FROM space_users
+		WHERE id=#{id}
+	</select>
+   
+	<select id="getCount" parameterType="qnaDto" resultType="int">
+		SELECT NVL(MAX(ROWNUM), 0)
+		FROM qna
+		<include refid="searchCondition"/>
+	</select>
+	
+	<select id="getCount2" parameterType="qnaDto" resultType="int">
+		SELECT NVL(MAX(ROWNUM), 0)
+		FROM qna
+		WHERE users_num=#{users_num}
+	</select>
+	
+	<select id="getCount3" parameterType="qnaDto" resultType="int">
+		SELECT NVL(MAX(ROWNUM), 0)
+		FROM qna
+		INNER JOIN seller_space ON qna.space_num = seller_space.space_num
+		WHERE seller_space.users_num = (
+			SELECT MAX(users_num) FROM space_users WHERE id = #{sellerId}
+		)
+	</select>
+	
+	<select id="adminCount" parameterType="qnaDto" resultType="int">
+		SELECT NVL(MAX(ROWNUM), 0)
+		FROM qna
+	</select>
+	
+	<insert id="insert">
+		INSERT INTO qna
+		(num, writer, title, content, viewCount, regdate, users_num, space_num)
+		VALUES (qna_seq.NEXTVAL, #{writer}, #{title}, #{content}, #{viewCount}, SYSDATE, #{users_num}, #{space_num})
+	</insert>
+	
+	<select id="getData" parameterType="int" resultType="qnaDto">
+		SELECT result1.*
+		FROM
+			(SELECT space_name, num,writer,title,content,viewCount,TO_CHAR(regdate, 'YY.MM.DD HH24:MI') AS regdate,
+				LAG(num, 1, 0) OVER (ORDER BY num DESC) qnaPrevNum,
+	   			LEAD(num, 1, 0) OVER (ORDER BY num DESC) qnaNextNum
+			FROM qna A
+			INNER JOIN seller_space B ON A.space_num=B.space_num) result1
+		WHERE num=#{num}
+	</select>
+	
+	<select id="getData2" parameterType="qnaDto" resultType="qnaDto">
+		SELECT result1.*
+		FROM
+			(SELECT B.space_name, num, writer,title,content,viewCount,TO_CHAR(regdate, 'YY.MM.DD HH24:MI') AS regdate, B.space_num,
+				LAG(num, 1, 0) OVER (ORDER BY num DESC) qnaPrevNum,
+	   			LEAD(num, 1, 0) OVER (ORDER BY num DESC) qnaNextNum
+			FROM qna A
+			INNER JOIN seller_space B ON A.space_num=B.space_num
+			<include refid="searchCondition2"></include>
+			)result1
+		WHERE num=#{num}
+	</select>
+	
+	<select id="sellerQnaData" parameterType="qnaDto" resultType="qnaDto">
+		SELECT result1.*
+			FROM (SELECT space_name, num, writer,title,content,viewCount,TO_CHAR(qna.regdate, 'YY.MM.DD HH24:MI') AS regdate, LAG(num, 1, 0) OVER (ORDER BY num DESC) qnaPrevNum, LEAD(num, 1, 0) OVER (ORDER BY num DESC) qnaNextNum
+				FROM qna
+				INNER JOIN seller_space ON qna.space_num = seller_space.space_num
+				INNER JOIN space_users ON seller_space.users_num = space_users.users_num
+				WHERE seller_space.space_num = qna.space_num AND space_users.id = #{sellerId} ORDER BY num DESC ) result1
+		WHERE num=#{num}
+	</select>
+	
+	<select id="usersQnaData" parameterType="qnaDto" resultType="qnaDto">
+		SELECT result1.*
+		FROM (
+			SELECT space_name, num, writer, title, content, viewCount, TO_CHAR(regdate, 'YY.MM.DD HH24:MI') AS regdate,
+				LAG(num, 1, 0) OVER (ORDER BY num DESC) qnaPrevNum,
+				LEAD(num, 1, 0) OVER (ORDER BY num DESC) qnaNextNum
+    		FROM qna
+		    INNER JOIN seller_space ON qna.space_num = seller_space.space_num
+		    WHERE qna.users_num = #{users_num}
+		    ORDER BY num DESC ) result1
+		WHERE num=#{num}
+	</select>
+	
+	<update id="addViewCount" parameterType="int">
+		UPDATE qna
+		SET viewCount = viewCount+1
+		WHERE num=#{num}
+	</update>
+	
+	<delete id="delete">
+		DELETE qna
+		WHERE num=#{num}
+	</delete>
+	
+	<delete id="delete2">
+		DELETE qna
+		WHERE space_num=#{space_num}
+	</delete>
+	
+	<!-- #은 ?로 바뀌고 '${xxx}'는 전처리 -->
+	<update id="update" parameterType="qnaDto">
+		UPDATE qna
+		SET title=#{title}, content='${content}'
+		WHERE num=#{num}
+	</update>
+	
+</mapper>
+
+
+
+
+
+
+
+
